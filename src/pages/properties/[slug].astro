@@ -1,0 +1,38 @@
+---
+import { eq } from 'drizzle-orm';
+import Layout from '../../layouts/Layout.astro';
+import { getDb } from '../../lib/db';
+import { properties } from '../../lib/schema';
+
+export const prerender = false;
+const { slug } = Astro.params;
+let home: typeof properties.$inferSelect | undefined;
+try { [home] = await getDb().select().from(properties).where(eq(properties.slug, slug ?? '')).limit(1); } catch { home = undefined; }
+if (!home || !home.published) return Astro.redirect('/properties', 302);
+const money = new Intl.NumberFormat('en', { style: 'currency', currency: home.currency, maximumFractionDigits: 0 }).format(home.price);
+---
+
+<Layout title={`${home.title} | Estate & Estate`} description={home.description.slice(0, 155)}>
+	<header class="site-header" style="position:absolute"><div class="wrap header-inner">
+		<a class="wordmark" href="/"><span class="brand-mark">E<span style="color:#c3ab80">&</span>E</span><span>ESTATE &amp; ESTATE</span></a>
+		<button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+		<nav class="main-nav" aria-label="Main navigation"><a href="/properties">Properties</a><a href="/#approach">Our approach</a><a href="/contact">Contact</a><a class="nav-cta" href={`/contact?property=${home.id}`}>Enquire ↗</a></nav>
+	</div></header>
+	<main>
+		<section class="page-hero"><div class="wrap"><a class="eyebrow" href="/properties">← Back to properties</a><h1 class="serif">{home.title}</h1><p>{[home.area, home.city].filter(Boolean).join(', ')}</p></div></section>
+		<section class="content-area"><div class="wrap" style="max-width:960px">
+			{home.imageUrl && <img src={home.imageUrl} alt={home.imageAlt || home.title} style="width:100%;max-height:620px;object-fit:cover" />}
+			<div style="display:grid;grid-template-columns:1fr auto;gap:30px;padding-top:36px;align-items:start">
+				<div><span class="eyebrow">A home to make your own</span><p style="max-width:620px;white-space:pre-line;color:var(--stone);font-size:14px;line-height:1.9">{home.description}</p>
+					<div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:25px;color:var(--stone);font-size:12px">{home.bedrooms != null && <span>{home.bedrooms} bedrooms</span>}{home.bathrooms != null && <span>{home.bathrooms} bathrooms</span>}{home.sizeSqft != null && <span>{home.sizeSqft.toLocaleString()} sq ft</span>}</div>
+				</div><div style="min-width:190px;color:var(--forest);font-size:18px;font-weight:600">{money}</div>
+			</div>
+			<a class="button" style="margin-top:32px" href={`/contact?property=${home.id}`}>Enquire about this property <span aria-hidden="true">↗</span></a>
+		</div></section>
+	</main>
+	<footer class="site-footer"><div class="wrap footer-bottom"><a href="/">Estate &amp; Estate</a><span>© {new Date().getFullYear()} Estate &amp; Estate</span><a href="/contact">Contact</a></div></footer>
+	<script>
+		const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle'); const nav = document.querySelector<HTMLElement>('.main-nav');
+		toggle?.addEventListener('click', () => { const open = toggle.getAttribute('aria-expanded') !== 'true'; toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation'); nav?.classList.toggle('open', open); });
+	</script>
+</Layout>

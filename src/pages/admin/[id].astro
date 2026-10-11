@@ -1,0 +1,76 @@
+---
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
+import Layout from '../../layouts/Layout.astro';
+import { hasStaffSession, isSameOrigin } from '../../lib/auth';
+import { getDb } from '../../lib/db';
+import { properties } from '../../lib/schema';
+
+export const prerender = false;
+if (!await hasStaffSession(Astro.request)) return Astro.redirect('/admin', 302);
+const id = z.uuid().safeParse(Astro.params.id);
+if (!id.success) return Astro.redirect('/admin', 302);
+let [home] = await getDb().select().from(properties).where(eq(properties.id, id.data)).limit(1);
+if (!home) return Astro.redirect('/admin', 302);
+let message = '';
+if (Astro.request.method === 'POST') {
+	if (!isSameOrigin(Astro.request, Astro.url.origin)) message = 'This request could not be verified. Please reload and try again.';
+	else {
+		const form = await Astro.request.formData();
+		const schema = z.object({
+			title: z.string().trim().min(5).max(180), description: z.string().trim().min(20).max(5000), city: z.string().trim().min(2).max(100),
+			area: z.string().trim().max(120).optional(), price: z.coerce.number().int().positive(), currency: z.string().regex(/^[A-Z]{3}$/),
+			bedrooms: z.preprocess((v) => v === '' || v == null ? undefined : Number(v), z.number().int().min(0).max(50).optional()),
+			bathrooms: z.preprocess((v) => v === '' || v == null ? undefined : Number(v), z.number().int().min(0).max(50).optional()),
+			sizeSqft: z.preprocess((v) => v === '' || v == null ? undefined : Number(v), z.number().int().positive().optional()),
+			imageUrl: z.union([z.literal(''), z.url()]).optional(), imageAlt: z.string().trim().max(240).optional(), featured: z.string().optional(),
+		});
+		const parsed = schema.safeParse(Object.fromEntries(form.entries()));
+		if (!parsed.success) message = 'Please check the required fields and try again.';
+		else try {
+			await getDb().update(properties).set({ ...parsed.data, area: parsed.data.area || null, imageUrl: parsed.data.imageUrl || null, imageAlt: parsed.data.imageAlt || null, bedrooms: parsed.data.bedrooms ?? null, bathrooms: parsed.data.bathrooms ?? null, sizeSqft: parsed.data.sizeSqft ?? null, featured: parsed.data.featured === 'on', updatedAt: new Date() }).where(eq(properties.id, id.data));
+			return Astro.redirect('/admin?saved=1', 303);
+		} catch { message = 'The property could not be updated. Please try again.'; }
+	}
+	[home] = await getDb().select().from(properties).where(eq(properties.id, id.data)).limit(1);
+}
+---
+
+<Layout title={`Edit ${home.title} | Estate & Estate`} description="Private property editor.">
+	<main><section class="page-hero"><div class="wrap"><a class="eyebrow" href="/admin">← Back to property management</a><h1 class="serif">Edit property</h1><p>Changes are saved to your draft or published listing.</p></div></section>
+	<section class="content-area"><div class="wrap">{message && <div class="notice error" role="alert">{message}</div>}
+		<form class="form-shell" method="post">
+			<div class="form-grid"><div class="field"><label for="title">Property title *</label><input id="title" name="title" value={home.title} required minlength="5" maxlength="180" /></div><div class="field"><label for="city">City *</label><input id="city" name="city" value={home.city} required maxlength="100" /></div></div>
+			<div class="field"><label for="area">Neighbourhood / area</label><input id="area" name="area" value={home.area ?? ''} maxlength="120" /></div>
+			<div class="field"><label for="description">Description *</label><textarea id="description" name="description" required minlength="20" maxlength="5000">{home.description}</textarea></div>
+			<div class="form-grid"><div class="field"><label for="price">Price *</label><input id="price" name="price" type="number" min="1" step="1" value={home.price} required /></div><div class="field"><label for="currency">Currency code *</label><input id="currency" name="currency" value={home.currency} pattern="[A-Z]{3}" maxlength="3" required /></div></div>
+			<div class="form-grid"><div class="field"><label for="bedrooms">Bedrooms</label><input id="bedrooms" name="bedrooms" type="number" min="0" max="50" value={home.bedrooms ?? ''} /></div><div class="field"><label for="bathrooms">Bathrooms</label><input id="bathrooms" name="bathrooms" type="number" min="0" max="50" value={home.bathrooms ?? ''} /></div></div>
+			<div class="form-grid"><div class="field"><label for="sizeSqft">Interior size (sq ft)</label><input id="sizeSqft" name="sizeSqft" type="number" min="1" value={home.sizeSqft ?? ''} /></div><div class="field"><label for="imageUrl">Image URL</label><input id="imageUrl" name="imageUrl" type="url" value={home.imageUrl ?? ''} placeholder="https://…" /></div></div>
+			<div class="field"><label for="propertyImage">Upload image <span style="font-weight:400;color:var(--stone)">(Cloudinary credentials required)</span></label><input id="propertyImage" type="file" accept="image/*" data-cloudinary-input /><button class="button" type="button" data-cloudinary-upload style="align-self:flex-start">Upload image</button><small data-cloudinary-status aria-live="polite"></small></div>
+			<div class="field"><label for="imageAlt">Image description</label><input id="imageAlt" name="imageAlt" value={home.imageAlt ?? ''} maxlength="240" /></div>
+			<label style="display:flex;align-items:center;gap:10px;margin-bottom:22px;font-size:12px"><input type="checkbox" name="featured" checked={home.featured} /> Feature this property</label>
+			<button class="button" type="submit">Save changes <span aria-hidden="true">↗</span></button>
+		</form>
+	</div></section></main>
+	<script>
+		const uploadButton = document.querySelector<HTMLButtonElement>('[data-cloudinary-upload]');
+		const fileInput = document.querySelector<HTMLInputElement>('[data-cloudinary-input]');
+		const imageUrlInput = document.querySelector<HTMLInputElement>('#imageUrl');
+		const uploadStatus = document.querySelector<HTMLElement>('[data-cloudinary-status]');
+		uploadButton?.addEventListener('click', async () => {
+			const file = fileInput?.files?.[0];
+			if (!file) { if (uploadStatus) uploadStatus.textContent = 'Choose an image first.'; return; }
+			uploadButton.disabled = true;
+			if (uploadStatus) uploadStatus.textContent = 'Uploading…';
+			try {
+				const body = new FormData(); body.set('file', file);
+				const response = await fetch('/api/admin/upload', { method: 'POST', body });
+				const result = await response.json() as { url?: string; error?: string };
+				if (!response.ok || !result.url) throw new Error(result.error || 'Upload failed.');
+				if (imageUrlInput) imageUrlInput.value = result.url;
+				if (uploadStatus) uploadStatus.textContent = 'Image uploaded and added to the image URL field.';
+			} catch (err) { if (uploadStatus) uploadStatus.textContent = err instanceof Error ? err.message : 'Upload failed.'; }
+			finally { uploadButton.disabled = false; }
+		});
+	</script>
+</Layout>

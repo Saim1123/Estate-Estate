@@ -1,0 +1,38 @@
+---
+import { desc, eq } from 'drizzle-orm';
+import Layout from '../../layouts/Layout.astro';
+import { getDb } from '../../lib/db';
+import { properties } from '../../lib/schema';
+
+let listings: (typeof properties.$inferSelect)[] = [];
+let databaseReady = true;
+try {
+	listings = await getDb().select().from(properties).where(eq(properties.published, true)).orderBy(desc(properties.featured), desc(properties.createdAt));
+} catch {
+	databaseReady = false;
+}
+const money = (amount: number, currency: string) => new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+---
+
+<Layout title="Properties | Estate & Estate" description="Explore homes represented by Estate & Estate.">
+	<header class="site-header" style="position:absolute"><div class="wrap header-inner">
+		<a class="wordmark" href="/"><span class="brand-mark">E<span style="color:#c3ab80">&</span>E</span><span>ESTATE &amp; ESTATE</span></a>
+		<button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+		<nav class="main-nav" aria-label="Main navigation"><a href="/properties">Properties</a><a href="/#approach">Our approach</a><a href="/contact">Contact</a><a class="nav-cta" href="/contact">Let’s talk ↗</a></nav>
+	</div></header>
+	<main>
+		<section class="page-hero"><div class="wrap"><span class="eyebrow">Homes represented with care</span><h1 class="serif">Our properties</h1><p>Explore the homes currently represented by our team. Have a particular place in mind? Tell us what you are looking for.</p></div></section>
+		<section class="content-area"><div class="wrap">
+			{!databaseReady && <div class="notice">The property collection is temporarily unavailable. Please try again shortly or contact our team.</div>}
+			{listings.length ? <div class="property-grid">{listings.map((home) => <a class="property-card" href={`/properties/${home.slug}`}>
+				{home.imageUrl && <img src={home.imageUrl} alt={home.imageAlt || home.title} loading="lazy" />}
+				<h2 class="serif">{home.title}</h2><p>{[home.area, home.city].filter(Boolean).join(', ')}</p><p class="price">{money(home.price, home.currency)}</p>
+			</a>)}</div> : databaseReady && <div class="listing-note"><div><span class="eyebrow">Current collection</span><h2 class="serif">We would love to help you find the right place.</h2><p>There are no published properties to show just now. Share what you are looking for and our team can help you explore your options.</p><a href="/contact">Start a conversation&nbsp; ↗</a></div></div>}
+		</div></section>
+	</main>
+	<footer class="site-footer"><div class="wrap footer-bottom"><a href="/">Estate &amp; Estate</a><span>© {new Date().getFullYear()} Estate &amp; Estate</span><a href="/contact">Contact</a></div></footer>
+	<script>
+		const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle'); const nav = document.querySelector<HTMLElement>('.main-nav');
+		toggle?.addEventListener('click', () => { const open = toggle.getAttribute('aria-expanded') !== 'true'; toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation'); nav?.classList.toggle('open', open); });
+	</script>
+</Layout>
