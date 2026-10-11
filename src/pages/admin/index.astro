@@ -73,7 +73,7 @@ const money = (amount: number, currency: string) => new Intl.NumberFormat('en', 
 	<main>
 		<section class="page-hero"><div class="wrap"><a href="/" class="wordmark" style="display:inline-flex;margin-bottom:42px"><span class="brand-mark">E<span style="color:#c3ab80">&</span>E</span><span>ESTATE &amp; ESTATE</span></a><br /><span class="eyebrow">Private staff area</span><h1 class="serif">{loggedIn ? 'Property management' : 'Staff access'}</h1><p>{loggedIn ? 'Manage the properties represented by your team.' : 'Sign in to manage Estate & Estate property listings.'}</p></div></section>
 		<section class="content-area"><div class="wrap">
-			{!configured && <div class="notice">Staff sign-in is not configured. Add STAFF_EMAIL, STAFF_PASSWORD and a long random SESSION_SECRET to the server environment to enable this area.</div>}
+			{!configured && <div class="notice" role="alert">Sign-in is disabled because the staff credentials are not configured correctly. Set STAFF_EMAIL and STAFF_PASSWORD, and set SESSION_SECRET to a random value at least 32 characters long. Restart the dev server after changing .env.</div>}
 			{error && <div class="notice error" role="alert">{error}</div>}{saved && <div class="notice" role="status">Your changes have been saved.</div>}
 			{!loggedIn ? <form class="form-shell" method="post" style="max-width:440px">
 				<input type="hidden" name="action" value="login" />
