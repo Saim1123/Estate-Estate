@@ -6,10 +6,19 @@ const { properties, saveProperty, can } = useAdminDemo();
 const property = computed(() =>
   properties.value.find((item) => item.id === route.params.id),
 );
-function save(value: Record<string, any>) {
-  if (!can("editProperties") || !property.value) return;
-  saveProperty({ ...property.value, ...value });
-  setTimeout(() => router.push("/admin/properties"), 650);
+async function save(
+  value: Record<string, any>,
+  complete: (error?: string) => void,
+) {
+  if (!can("editProperties") || !property.value)
+    return complete("You do not have permission to edit properties.");
+  try {
+    await saveProperty({ ...property.value, ...value });
+    complete();
+    setTimeout(() => router.push("/admin/properties"), 650);
+  } catch (error: any) {
+    complete(error?.data?.statusMessage || "The property could not be saved.");
+  }
 }
 </script>
 <template>

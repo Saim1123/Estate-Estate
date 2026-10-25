@@ -1,6 +1,6 @@
-# Nuxt Minimal Starter
+# Estate & Estate
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Nuxt 4 property website with a designed admin workspace. Admin accounts, properties, permissions, settings and activity are development prototype data held in server process memory.
 
 ## Setup
 
@@ -20,7 +20,22 @@ yarn install
 bun install
 ```
 
-## Development Server
+## Development prototype authentication
+
+Authentication is deliberately limited to local development. It uses an HMAC-signed, HttpOnly session cookie, scrypt password hashes, one-time expiring reset tokens, and server-side permission checks. This is not a production identity system: reset links are shown in the UI because no email delivery is configured, and data and password changes are lost when the server restarts. The auth endpoints refuse to run in production.
+
+Copy `.env.example` to `.env` and set a unique development password and a random secret with at least 32 characters. The administrator email must match the seeded system administrator, `saimtahir3211@gmail.com`.
+
+```dotenv
+NUXT_AUTH_MODE=development-prototype
+NUXT_AUTH_SECRET=replace-with-a-random-value-of-at-least-32-characters
+NUXT_AUTH_DEMO_ADMIN_EMAIL=saimtahir3211@gmail.com
+NUXT_AUTH_DEMO_ADMIN_PASSWORD=replace-with-a-unique-password-of-at-least-12-characters
+```
+
+Keep `.env` private and never reuse the prototype password or secret in another environment. Other seeded accounts do not have an initial password; in this prototype, request a one-time development reset link from the forgot-password page.
+
+## Development server
 
 Start the development server on `http://localhost:3000`:
 
@@ -38,7 +53,7 @@ yarn dev
 bun run dev
 ```
 
-## Production
+## Production build
 
 Build the application for production:
 

@@ -58,13 +58,12 @@ function glyph(kind: string) {
           <div class="log-filters">
             <label class="search-field"
               ><span>⌕</span
-              ><input v-model="query" placeholder="Search activity…" /></label
-            ><select v-model="actionFilter">
-              <option>All activity</option>
-              <option>Properties</option>
-              <option>Accounts</option>
-              <option>Permissions</option>
-            </select>
+              ><UInput class="admin-ui-input" v-model="query" placeholder="Search activity…" size="sm" /></label
+            ><USelect class="admin-ui-select"
+              v-model="actionFilter"
+              :items="['All activity', 'Properties', 'Accounts', 'Permissions']"
+              size="sm"
+            />
           </div>
         </div>
         <div v-if="filtered.length" class="timeline">

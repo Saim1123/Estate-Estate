@@ -1,37 +1,104 @@
 <script setup lang="ts">
 definePageMeta({ layout: "admin" });
-const { profile, preferences, can, log } = useAdminDemo();
-const profileForm = reactive({ ...profile.value });
+const { profile, preferences, can, log, currentUser } = useAdminDemo();
+const profileForm = reactive({
+  ...profile.value,
+  name: currentUser.value?.name || profile.value.name,
+  email: currentUser.value?.email || profile.value.email,
+});
 const passwordForm = reactive({ current: "", next: "", confirm: "" });
 const passwordError = ref("");
 const toast = ref("");
 const saved = ref(false);
-function saveProfile() {
+const isSaving = ref(false);
+onMounted(async () => {
   if (!can("manageSettings")) return;
-  Object.assign(profile.value, profileForm);
-  log("updated profile settings", profileForm.name, "Settings");
-  saved.value = true;
-  toast.value = "Profile changes saved.";
+  try {
+    const result = await $fetch<{
+      profile: typeof profile.value;
+      preferences: typeof preferences.value;
+    }>("/api/admin/settings");
+    Object.assign(profile.value, result.profile);
+    Object.assign(profileForm, result.profile);
+    Object.assign(preferences.value, result.preferences);
+  } catch {
+    toast.value = "Settings could not be loaded from the development server.";
+  }
+});
+async function saveProfile() {
+  if (!can("manageSettings") || isSaving.value) return;
+  isSaving.value = true;
+  try {
+    const result = await $fetch<{ profile: typeof profile.value }>(
+      "/api/admin/settings",
+      {
+        method: "PATCH",
+        body: { profile: profileForm },
+      },
+    );
+    Object.assign(profile.value, result.profile);
+    log("updated profile settings", profileForm.name, "Settings");
+    saved.value = true;
+    toast.value = "Profile changes saved.";
+  } catch (error: any) {
+    toast.value =
+      error?.data?.statusMessage || "Profile changes could not be saved.";
+  } finally {
+    isSaving.value = false;
+  }
   setTimeout(() => {
     saved.value = false;
     toast.value = "";
   }, 3000);
 }
-function changePassword() {
+async function changePassword() {
   passwordError.value = "";
-  if (!passwordForm.current || passwordForm.next.length < 8) {
+  if (!passwordForm.current || passwordForm.next.length < 10) {
     passwordError.value =
-      "Enter your current password and a new password with at least 8 characters.";
+      "Enter your current password and a new password with at least 10 characters.";
     return;
   }
   if (passwordForm.next !== passwordForm.confirm) {
     passwordError.value = "The new passwords do not match.";
     return;
   }
-  passwordForm.current = "";
-  passwordForm.next = "";
-  passwordForm.confirm = "";
-  toast.value = "Password updated in this demo preview.";
+  try {
+    await $fetch("/api/auth/change-password", {
+      method: "POST",
+      body: {
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      },
+    });
+    passwordForm.current = "";
+    passwordForm.next = "";
+    passwordForm.confirm = "";
+    toast.value = "Password updated for this development process.";
+  } catch (error: any) {
+    passwordError.value =
+      error?.data?.statusMessage || "Password could not be changed.";
+  }
+  setTimeout(() => (toast.value = ""), 3000);
+}
+async function savePreferences() {
+  if (!can("manageSettings") || isSaving.value) return;
+  isSaving.value = true;
+  try {
+    const result = await $fetch<{ preferences: typeof preferences.value }>(
+      "/api/admin/settings",
+      {
+        method: "PATCH",
+        body: { preferences: preferences.value },
+      },
+    );
+    Object.assign(preferences.value, result.preferences);
+    toast.value = "Workspace preferences saved.";
+  } catch (error: any) {
+    toast.value =
+      error?.data?.statusMessage || "Workspace preferences could not be saved.";
+  } finally {
+    isSaving.value = false;
+  }
   setTimeout(() => (toast.value = ""), 3000);
 }
 </script>
@@ -43,8 +110,7 @@ function changePassword() {
       description="A few personal details and preferences for your property office."
     />
     <div v-if="!can('manageSettings')" class="settings-role-note">
-      Your preview role can view settings but cannot edit system preferences.
-      Switch to System Administrator to make changes.
+      Your account can view this page but cannot edit system preferences.
     </div>
     <div class="settings-grid">
       <div class="settings-main-column">
@@ -59,31 +125,37 @@ function changePassword() {
           <form class="settings-form" @submit.prevent="saveProfile">
             <label class="field"
               ><span>Full name</span
-              ><input
+              ><UInput class="admin-ui-input"
                 v-model="profileForm.name"
                 :disabled="!can('manageSettings')"
-                required /></label
+                required
+                size="sm"
+              /></label
             ><label class="field"
               ><span>Email address</span
-              ><input
+              ><UInput class="admin-ui-input"
                 v-model="profileForm.email"
                 :disabled="!can('manageSettings')"
                 required
-                type="email" /></label
+                type="email"
+                size="sm"
+              /></label
             ><label class="field"
               ><span>Phone number</span
-              ><input
+              ><UInput class="admin-ui-input"
                 v-model="profileForm.phone"
                 :disabled="!can('manageSettings')"
                 placeholder="+92 300 000 0000"
+                size="sm"
             /></label>
             <div class="settings-save-row">
-              <button
+              <UButton variant="ghost"
                 v-if="can('manageSettings')"
                 class="admin-button primary"
                 type="submit"
+                :disabled="isSaving"
               >
-                Save profile</button
+                Save profile</UButton
               ><span v-if="saved" class="inline-success">✓ Saved</span>
             </div>
           </form>
@@ -99,33 +171,37 @@ function changePassword() {
           <form class="settings-form" @submit.prevent="changePassword">
             <label class="field"
               ><span>Current password</span
-              ><input
+              ><UInput class="admin-ui-input"
                 v-model="passwordForm.current"
                 type="password"
                 placeholder="Enter current password"
+                size="sm"
             /></label>
             <div class="settings-fields-two">
               <label class="field"
                 ><span>New password</span
-                ><input
+                ><UInput class="admin-ui-input"
                   v-model="passwordForm.next"
                   type="password"
-                  placeholder="At least 8 characters" /></label
+                  placeholder="At least 8 characters"
+                  size="sm"
+                /></label
               ><label class="field"
                 ><span>Confirm new password</span
-                ><input
+                ><UInput class="admin-ui-input"
                   v-model="passwordForm.confirm"
                   type="password"
                   placeholder="Re-enter password"
+                  size="sm"
               /></label>
             </div>
             <small v-if="passwordError" class="form-error">{{
               passwordError
             }}</small>
             <div class="settings-save-row">
-              <button class="admin-button" type="submit">
+              <UButton variant="ghost" class="admin-button" type="submit">
                 Update password
-              </button>
+              </UButton>
             </div>
             <p class="password-note">
               Password updates are a UI preview. No credentials are stored or
@@ -147,46 +223,42 @@ function changePassword() {
             <label class="preference-row"
               ><span
                 ><b>Currency</b><small>Display property prices in</small></span
-              ><select
+              ><USelect class="admin-ui-select"
                 v-model="preferences.currency"
+                :items="['PKR', 'USD']"
                 :disabled="!can('manageSettings')"
-              >
-                <option>PKR</option>
-                <option>USD</option>
-              </select></label
+                size="sm"
+              /></label
             ><label class="preference-row"
               ><span
                 ><b>Timezone</b
                 ><small>Used for activity timestamps</small></span
-              ><select
+              ><USelect class="admin-ui-select"
                 v-model="preferences.timezone"
+                :items="['Asia/Karachi', 'UTC']"
                 :disabled="!can('manageSettings')"
-              >
-                <option>Asia/Karachi</option>
-                <option>UTC</option>
-              </select></label
+                size="sm"
+              /></label
             ><label class="preference-row"
               ><span
                 ><b>Email updates</b
                 ><small>Receive important workspace updates</small></span
-              ><label class="toggle-switch"
-                ><input
-                  v-model="preferences.emailUpdates"
-                  type="checkbox"
-                  :disabled="!can('manageSettings')" /><span /></label
-            ></label>
+              ><USwitch
+                v-model="preferences.emailUpdates"
+                :disabled="!can('manageSettings')"
+                aria-label="Email updates"
+                size="sm"
+              /></label>
           </div>
           <div class="settings-save-row preference-save">
-            <button
+            <UButton variant="ghost"
               v-if="can('manageSettings')"
               class="admin-button primary"
-              @click="
-                toast = 'Workspace preferences saved.';
-                setTimeout(() => (toast = ''), 3000);
-              "
+              :disabled="isSaving"
+              @click="savePreferences"
             >
               Save preferences
-            </button>
+            </UButton>
           </div>
         </section>
         <section class="settings-help">
@@ -201,8 +273,9 @@ function changePassword() {
       </div>
     </div>
     <div class="demo-disclaimer">
-      ⓘ <span>Demo settings</span> — Profile and preferences live in frontend
-      state for this preview only. Passwords are not stored.
+      ⓘ <span>Development prototype</span> — Settings and account changes are
+      stored in process memory. Passwords are hashed server-side and are not
+      kept after a server restart.
     </div>
     <div v-if="toast" class="admin-toast">✓ {{ toast }}</div>
   </div>

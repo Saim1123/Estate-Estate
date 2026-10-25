@@ -6,7 +6,7 @@ import {
   type Permission,
 } from "~/data/adminDemo";
 definePageMeta({ layout: "admin" });
-const { roles, can, log } = useAdminDemo();
+const { roles, can } = useAdminDemo();
 const roleNames: DemoRole[] = [
   "System Administrator",
   "Property Manager",
@@ -22,16 +22,6 @@ const permissionGroups = [
   { title: "TEAM & ACCESS", keys: permissionKeys.slice(5, 10) },
   { title: "WORKSPACE", keys: permissionKeys.slice(10) },
 ];
-const toast = ref("");
-function update(role: DemoRole, permission: Permission, checked: boolean) {
-  if (!can("manageRoles") || role === "System Administrator") return;
-  const next = new Set(roles.value[role]);
-  checked ? next.add(permission) : next.delete(permission);
-  roles.value[role] = [...next];
-  log("changed permissions for", role, "Permissions");
-  toast.value = `${role} permissions updated.`;
-  setTimeout(() => (toast.value = ""), 2500);
-}
 </script>
 <template>
   <div>
@@ -41,16 +31,15 @@ function update(role: DemoRole, permission: Permission, checked: boolean) {
       description="Shape what each role can see and do in your workspace."
     />
     <div v-if="!can('manageRoles')" class="permission-notice">
-      Your preview role does not have permission to manage roles and
-      permissions.
+      You do not have permission to manage roles and permissions.
     </div>
     <template v-else>
       <div class="roles-callout">
         <span>◇</span>
         <p>
-          <b>Permissions are role-based.</b> Changes here affect the experience
-          of every demo user assigned to that role. These controls are a
-          frontend preview only.
+          <b>Permissions are assigned to individual accounts.</b> These role
+          cards show suggested defaults; edit actual access from Users &amp;
+          Accounts.
         </p>
       </div>
       <div class="role-cards">
@@ -79,7 +68,7 @@ function update(role: DemoRole, permission: Permission, checked: boolean) {
             ><span>{{
               role === "System Administrator"
                 ? "Always full access"
-                : "Editable below"
+                : "Assigned per account"
             }}</span>
           </div>
         </article>
@@ -89,7 +78,10 @@ function update(role: DemoRole, permission: Permission, checked: boolean) {
           <div>
             <span class="panel-eyebrow">ACCESS MATRIX</span>
             <h2>Individual permissions</h2>
-            <p>Use the toggles to fine-tune each role’s capabilities.</p>
+            <p>
+              These defaults are informational. Account permissions are changed
+              on the Users &amp; Accounts page.
+            </p>
           </div>
           <span class="readonly-badge">System Administrator · Protected</span>
         </div>
@@ -123,21 +115,12 @@ function update(role: DemoRole, permission: Permission, checked: boolean) {
               class="permission-choice"
             >
               <span class="mobile-role-label">{{ role }}</span
-              ><label
-                class="toggle-switch"
-                :class="{ locked: role === 'System Administrator' }"
-                ><input
-                  type="checkbox"
-                  :checked="roles[role].includes(permission)"
-                  :disabled="role === 'System Administrator'"
-                  @change="
-                    update(
-                      role,
-                      permission,
-                      ($event.target as HTMLInputElement).checked,
-                    )
-                  " /><span
-              /></label>
+              ><USwitch
+                :model-value="roles[role].includes(permission)"
+                :aria-label="`${role}: ${permissionLabels[permission]}`"
+                disabled
+                size="sm"
+              />
             </div>
           </div>
         </div>
@@ -151,10 +134,9 @@ function update(role: DemoRole, permission: Permission, checked: boolean) {
         </div>
       </section>
       <div class="demo-disclaimer">
-        ⓘ <span>Frontend preview only</span> — Production authorization will be
-        enforced on the server, independent of these UI controls.
+        ⓘ <span>Development prototype</span> — These defaults are a reference;
+        the server checks the permissions saved on each account.
       </div>
-      <div v-if="toast" class="admin-toast">✓ {{ toast }}</div>
     </template>
   </div>
 </template>

@@ -153,7 +153,7 @@ export const initialUsers = [
   {
     id: "U-001",
     name: "Amina Shah",
-    email: "amina@estateandestate.pk",
+    email: "saimtahir3211@gmail.com",
     role: "System Administrator" as DemoRole,
     status: "Active",
     lastActive: "Just now",

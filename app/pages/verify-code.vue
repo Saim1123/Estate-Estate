@@ -34,7 +34,7 @@ function submitCode() {
   if (emailError.value || codeError.value) return;
   flow.value.purpose = "password-reset";
   codeMessage.value =
-    "Demo only: this code was not checked or securely verified. No reset session has been issued. You can preview the next screen, but no password can be changed.";
+    "This legacy code screen is a design preview only. No code was checked and no password can be changed here. Use the one-time development link on the forgot-password screen.";
 }
 
 function resendCode() {
@@ -92,14 +92,7 @@ onUnmounted(() => {
         :error="codeError"
       />
       <AuthMessage v-if="codeMessage" kind="info" :text="codeMessage" />
-      <NuxtLink
-        v-if="codeMessage && /^\d{6}$/.test(code) && isValidEmail(email)"
-        to="/reset-password"
-        class="btn auth-button"
-        >Continue to reset form (demo)
-        <span aria-hidden="true">→</span></NuxtLink
-      >
-      <button v-else class="btn auth-button" type="submit">Continue</button>
+      <button class="btn auth-button" type="submit">Preview code screen</button>
     </form>
 
     <div class="auth-flow-actions">

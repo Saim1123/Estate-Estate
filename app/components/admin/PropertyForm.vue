@@ -3,7 +3,9 @@ const props = withDefaults(
   defineProps<{ initial?: Record<string, any>; allowPublish?: boolean }>(),
   { allowPublish: false },
 );
-const emit = defineEmits<{ save: [value: Record<string, any>] }>();
+const emit = defineEmits<{
+  save: [value: Record<string, any>, complete: (error?: string) => void];
+}>();
 const form = reactive({
   title: "",
   description: "",
@@ -19,9 +21,13 @@ const form = reactive({
   status: "Draft",
   image: "",
 });
+
 const errors = ref<Record<string, string>>({});
 const saved = ref(false);
+const isSaving = ref(false);
+const saveError = ref("");
 const fileInput = ref<HTMLInputElement>();
+
 watch(
   () => props.initial,
   (value) => {
@@ -29,12 +35,15 @@ watch(
   },
   { immediate: true },
 );
+
 function preview(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (file) form.image = URL.createObjectURL(file);
 }
+
 function submit() {
   errors.value = {};
+  saveError.value = "";
   for (const key of [
     "title",
     "description",
@@ -48,15 +57,27 @@ function submit() {
       errors.value[key] = "This field is required.";
   if (Number(form.price) <= 0) errors.value.price = "Enter a valid price.";
   if (Object.keys(errors.value).length) return;
-  emit("save", {
-    ...form,
-    price: Number(form.price),
-    beds: Number(form.beds || 0),
-    baths: Number(form.baths || 0),
-    areaSize: Number(form.areaSize),
-  });
-  saved.value = true;
-  setTimeout(() => (saved.value = false), 4000);
+  if (isSaving.value) return;
+  isSaving.value = true;
+  emit(
+    "save",
+    {
+      ...form,
+      price: Number(form.price),
+      beds: Number(form.beds || 0),
+      baths: Number(form.baths || 0),
+      areaSize: Number(form.areaSize),
+    },
+    (error) => {
+      isSaving.value = false;
+      if (error) {
+        saveError.value = error;
+        return;
+      }
+      saved.value = true;
+      setTimeout(() => (saved.value = false), 4000);
+    },
+  );
 }
 </script>
 <template>
@@ -73,14 +94,15 @@ function submit() {
         <div class="field-grid">
           <label class="field full"
             ><span>Property title <i>*</i></span
-            ><input
+            ><UInput class="admin-ui-input"
               v-model="form.title"
               placeholder="e.g. Seafront Residence"
+              size="sm"
             /><small v-if="errors.title">{{ errors.title }}</small></label
           >
           <label class="field full"
             ><span>Description <i>*</i></span
-            ><textarea
+            ><UTextarea class="admin-ui-textarea"
               v-model="form.description"
               rows="4"
               placeholder="Describe what makes this property special…"
@@ -92,55 +114,54 @@ function submit() {
             ><span>Price (PKR) <i>*</i></span>
             <div class="price-input">
               <span>₨</span
-              ><input
+              ><UInput class="admin-ui-input"
                 v-model="form.price"
                 type="number"
                 min="1"
                 placeholder="0"
+                size="sm"
               />
             </div>
             <small v-if="errors.price">{{ errors.price }}</small></label
           >
           <label class="field"
             ><span>Property type <i>*</i></span
-            ><select v-model="form.type">
-              <option>House</option>
-              <option>Apartment</option>
-              <option>Townhouse</option>
-              <option>Plot</option>
-              <option>Commercial</option>
-            </select></label
+            ><USelect class="admin-ui-select"
+              v-model="form.type"
+              :items="['House', 'Apartment', 'Townhouse', 'Plot', 'Commercial']"
+              size="sm"
+            /></label
           >
           <label class="field"
             ><span>Listing type <i>*</i></span
-            ><select v-model="form.listing">
-              <option>Sale</option>
-              <option>Rent</option>
-            </select></label
+            ><USelect class="admin-ui-select" v-model="form.listing" :items="['Sale', 'Rent']" size="sm" /></label
           >
           <div class="field">
             <span>Bedrooms & bathrooms</span>
             <div class="field-pair">
-              <input
+              <UInput class="admin-ui-input"
                 v-model="form.beds"
                 type="number"
                 min="0"
                 placeholder="Bedrooms"
-              /><input
+                size="sm"
+              /><UInput class="admin-ui-input"
                 v-model="form.baths"
                 type="number"
                 min="0"
                 placeholder="Bathrooms"
+                size="sm"
               />
             </div>
           </div>
           <label class="field"
             ><span>Area (sq. ft.) <i>*</i></span
-            ><input
+            ><UInput class="admin-ui-input"
               v-model="form.areaSize"
               type="number"
               min="1"
               placeholder="e.g. 2,400"
+              size="sm"
             /><small v-if="errors.areaSize">{{ errors.areaSize }}</small></label
           >
         </div>
@@ -156,20 +177,17 @@ function submit() {
         <div class="field-grid">
           <label class="field full"
             ><span>Street address <i>*</i></span
-            ><input
+            ><UInput class="admin-ui-input"
               v-model="form.address"
               placeholder="House number and street"
+              size="sm"
             /><small v-if="errors.address">{{ errors.address }}</small></label
           ><label class="field"
             ><span>City <i>*</i></span
-            ><select v-model="form.city">
-              <option>Karachi</option>
-              <option>Lahore</option>
-              <option>Islamabad</option>
-            </select></label
+            ><USelect class="admin-ui-select" v-model="form.city" :items="['Karachi', 'Lahore', 'Islamabad']" size="sm" /></label
           ><label class="field"
             ><span>Neighbourhood / area <i>*</i></span
-            ><input v-model="form.area" placeholder="e.g. DHA Phase 8" /><small
+            ><UInput class="admin-ui-input" v-model="form.area" placeholder="e.g. DHA Phase 8" size="sm" /><small
               v-if="errors.area"
               >{{ errors.area }}</small
             ></label
@@ -186,7 +204,7 @@ function submit() {
             <p>Add a first impression.</p>
           </div>
         </div>
-        <button type="button" class="image-drop" @click="fileInput?.click()">
+        <UButton type="button" class="image-drop" variant="ghost" @click="fileInput?.click()">
           <img
             v-if="form.image"
             :src="form.image"
@@ -194,21 +212,22 @@ function submit() {
           /><template v-else
             ><span class="upload-icon">↥</span><b>Choose an image</b
             ><small>JPG or PNG · Local preview only</small></template
-          ></button
+          ></UButton
         ><input
           ref="fileInput"
           hidden
           type="file"
           accept="image/*"
           @change="preview"
-        /><button
+        /><UButton
           v-if="form.image"
           type="button"
           class="remove-image"
+          variant="ghost"
           @click="form.image = ''"
         >
           Remove image
-        </button>
+        </UButton>
       </section>
       <section class="form-panel status-panel">
         <div class="form-panel-title">
@@ -220,11 +239,12 @@ function submit() {
         </div>
         <label class="field"
           ><span>Status</span
-          ><select v-model="form.status" :disabled="!allowPublish">
-            <option>Draft</option>
-            <option>Review</option>
-            <option>Published</option>
-          </select></label
+          ><USelect class="admin-ui-select"
+            v-model="form.status"
+            :items="['Draft', 'Review', 'Published']"
+            :disabled="!allowPublish"
+            size="sm"
+          /></label
         >
         <div class="publish-note">
           <span>ⓘ</span>
@@ -234,16 +254,25 @@ function submit() {
                 ? "Published listings are visible on the public website."
                 : "Your preview role can save listings as drafts. Publishing requires the publish permission."
             }}
-            Your demo selection stays in local browser state.
+            Your changes are stored in the development server process only.
           </p>
         </div>
       </section>
       <div class="form-actions">
-        <button type="submit" class="admin-button primary">
-          Save property <span>→</span></button
+        <UButton
+          type="submit"
+          class="admin-button primary"
+          color="primary"
+          :disabled="isSaving"
+          :aria-busy="isSaving"
+        >
+          {{ isSaving ? "Saving…" : "Save property" }} <span>→</span></UButton
         ><NuxtLink to="/admin/properties" class="cancel-link">Cancel</NuxtLink>
         <p v-if="saved" class="save-success">
-          ✓ Property saved to your demo workspace.
+          ✓ Property saved to the development workspace.
+        </p>
+        <p v-if="saveError" class="form-save-error" role="alert">
+          {{ saveError }}
         </p>
       </div>
     </div>
@@ -255,6 +284,12 @@ function submit() {
   grid-template-columns: minmax(0, 1.55fr) minmax(235px, 0.9fr);
   gap: 18px;
   align-items: start;
+}
+.form-save-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #9a3e34;
+  font-size: 10px;
 }
 .form-main-column,
 .form-side-column {

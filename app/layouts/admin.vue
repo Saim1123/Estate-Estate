@@ -1,8 +1,44 @@
 <script setup lang="ts">
 import type { Permission } from "~/data/adminDemo";
+import { useAuthSession } from "~/composables/useAuthSession";
 const route = useRoute();
-const { activeRole, can } = useAdminDemo();
+const { users, properties, activity, can } = useAdminDemo();
+const { user } = useAuthSession();
 const menuOpen = ref(false);
+if (import.meta.server) {
+  const requestFetch = useRequestFetch();
+  const initialRequests: Promise<void>[] = [];
+  if (can("users.view")) {
+    initialRequests.push(
+      requestFetch<{ users: typeof users.value }>("/api/admin/users")
+        .then((result) => {
+          users.value = result.users;
+        })
+        .catch(() => undefined),
+    );
+  }
+  if (can("properties.view")) {
+    initialRequests.push(
+      requestFetch<{ properties: typeof properties.value }>(
+        "/api/admin/properties",
+      )
+        .then((result) => {
+          properties.value = result.properties;
+        })
+        .catch(() => undefined),
+    );
+  }
+  if (can("viewActivity")) {
+    initialRequests.push(
+      requestFetch<{ activity: typeof activity.value }>("/api/admin/activity")
+        .then((result) => {
+          activity.value = result.activity;
+        })
+        .catch(() => undefined),
+    );
+  }
+  await Promise.all(initialRequests);
+}
 const links: {
   label: string;
   to: string;
@@ -40,10 +76,51 @@ const visibleLinks = computed(() =>
   links.filter((link) => !link.permission || can(link.permission)),
 );
 const roleLabel = computed(() =>
-  activeRole.value === "System Administrator"
-    ? "Administrator"
-    : activeRole.value,
+  user.value?.role === "system_admin"
+    ? "System administrator"
+    : user.value?.role === "property_manager"
+      ? "Property manager"
+      : "Staff",
 );
+async function signOut() {
+  try {
+    await $fetch("/api/auth/logout", { method: "POST" });
+  } finally {
+    user.value = null;
+    await navigateTo("/login");
+  }
+}
+onMounted(async () => {
+  const requests: Promise<void>[] = [];
+  if (can("users.view")) {
+    requests.push(
+      $fetch<{ users: typeof users.value }>("/api/admin/users")
+        .then((result) => {
+          users.value = result.users;
+        })
+        .catch(() => undefined),
+    );
+  }
+  if (can("properties.view")) {
+    requests.push(
+      $fetch<{ properties: typeof properties.value }>("/api/admin/properties")
+        .then((result) => {
+          properties.value = result.properties;
+        })
+        .catch(() => undefined),
+    );
+  }
+  if (can("viewActivity")) {
+    requests.push(
+      $fetch<{ activity: typeof activity.value }>("/api/admin/activity")
+        .then((result) => {
+          activity.value = result.activity;
+        })
+        .catch(() => undefined),
+    );
+  }
+  await Promise.all(requests);
+});
 </script>
 
 <template>
@@ -79,7 +156,9 @@ const roleLabel = computed(() =>
         <div class="preview-note">
           <span class="preview-dot" /> DEMO PREVIEW
           <span class="info-mark">i</span>
-          <p>Changes are stored in this browser session only.</p>
+          <p>
+            Development prototype. Demo data resets when the server restarts.
+          </p>
         </div>
         <NuxtLink to="/" class="back-site"
           ><span>↖</span> Back to website</NuxtLink
@@ -88,34 +167,28 @@ const roleLabel = computed(() =>
     </aside>
     <section class="admin-main">
       <header class="admin-topbar">
-        <button
+        <UButton variant="ghost"
           class="mobile-menu"
           aria-label="Open navigation"
           @click="menuOpen = !menuOpen"
         >
           ☰
-        </button>
+        </UButton>
         <div class="topbar-context">
           <span class="top-dot" /> Private workspace
           <span class="context-divider">/</span>
           <span class="context-current">Admin console</span>
         </div>
         <div class="topbar-right">
-          <label class="role-switcher"
-            ><span>PREVIEW AS</span
-            ><select v-model="activeRole" aria-label="Preview as demo user">
-              <option>System Administrator</option>
-              <option>Property Manager</option>
-              <option>Staff</option></select
-            ><span class="chevron">⌄</span></label
-          >
-          <button class="top-icon" aria-label="Notifications">♧<i /></button>
+          <UButton variant="ghost" class="top-icon" aria-label="Notifications">♧<i /></UButton>
           <div class="top-user">
-            <span class="avatar">{{ roleLabel.slice(0, 1) }}</span
+            <span class="avatar">{{ user?.name.slice(0, 1) || "?" }}</span
             ><span
-              ><b>{{ roleLabel }}</b
-              ><small>Estate & Estate</small></span
-            ><span class="chevron">⌄</span>
+              ><b>{{ user?.name || "Signed in" }}</b
+              ><small>{{ roleLabel }}</small></span
+            ><UButton variant="ghost" class="admin-sign-out" type="button" @click="signOut">
+              Sign out
+            </UButton>
           </div>
         </div>
       </header>
@@ -389,6 +462,16 @@ const roleLabel = computed(() =>
   font-size: 9px;
   margin-top: 2px;
 }
+.admin-sign-out {
+  border: 0;
+  background: transparent;
+  color: #81745e;
+  font-size: 10px;
+  cursor: pointer;
+}
+.admin-sign-out:hover {
+  text-decoration: underline;
+}
 .admin-content {
   width: 100%;
   max-width: 1500px;
@@ -471,22 +554,10 @@ const roleLabel = computed(() =>
   .topbar-right {
     gap: 10px;
   }
-  .role-switcher {
-    padding: 6px 7px;
-    gap: 5px;
-  }
-  .role-switcher > span:first-child {
-    display: none;
-  }
-  .role-switcher select {
-    font-size: 9px;
-    max-width: 105px;
-  }
   .top-icon {
     display: none;
   }
-  .top-user > span:nth-child(2),
-  .top-user > .chevron {
+  .top-user > span:nth-child(2) {
     display: none;
   }
   .top-user {

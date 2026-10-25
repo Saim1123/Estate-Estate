@@ -77,7 +77,7 @@ async function createAccount() {
         :error="errors.email"
       />
       <div>
-        <PasswordInput
+        <AuthPasswordInput
           id="signup-password"
           v-model="password"
           label="Password"
@@ -88,7 +88,7 @@ async function createAccount() {
           At least 10 characters, with uppercase, lowercase, and a number.
         </p>
       </div>
-      <PasswordInput
+      <AuthPasswordInput
         id="signup-confirm-password"
         v-model="confirmPassword"
         label="Confirm password"

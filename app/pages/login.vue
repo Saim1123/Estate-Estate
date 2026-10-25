@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isValidEmail } from "~/utils/authValidation";
+import type { PublicAccount } from "~/types/access";
 definePageMeta({ layout: "auth" });
 useSeoMeta({
   title: "Sign in | Estate & Estate",
@@ -11,6 +12,7 @@ const password = ref("");
 const rememberMe = ref(false);
 const attempted = ref(false);
 const notice = ref("");
+const isSubmitting = ref(false);
 const emailError = computed(() =>
   !attempted.value
     ? ""
@@ -24,11 +26,30 @@ const passwordError = computed(() =>
   attempted.value && !password.value ? "Enter your password." : "",
 );
 
-function signIn() {
+async function signIn() {
   attempted.value = true;
   notice.value = "";
-  if (emailError.value || passwordError.value) return;
-  notice.value = "Sign-in is not connected yet. No account was authenticated.";
+  if (emailError.value || passwordError.value || isSubmitting.value) return;
+  isSubmitting.value = true;
+  try {
+    const result = await $fetch<{ user: PublicAccount }>("/api/auth/login", {
+      method: "POST",
+      body: {
+        email: email.value,
+        password: password.value,
+        remember: rememberMe.value,
+      },
+    });
+    useAuthSession().user.value = result.user;
+    const requested = String(useRoute().query.redirect || "/admin");
+    await navigateTo(requested.startsWith("/admin") ? requested : "/admin");
+  } catch (error: any) {
+    notice.value =
+      error?.data?.statusMessage ||
+      "Sign-in is unavailable. Check the development prototype setup.";
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -50,7 +71,7 @@ function signIn() {
         placeholder="you@example.com"
         :error="emailError"
       />
-      <PasswordInput
+      <AuthPasswordInput
         id="login-password"
         v-model="password"
         label="Password"
@@ -64,9 +85,15 @@ function signIn() {
           >Forgot password?</NuxtLink
         >
       </div>
-      <AuthMessage v-if="notice" :text="notice" kind="info" />
-      <button class="btn auth-button" type="submit">
-        Sign in <span aria-hidden="true">→</span>
+      <AuthMessage v-if="notice" :text="notice" kind="error" />
+      <button
+        class="btn auth-button"
+        type="submit"
+        :disabled="isSubmitting"
+        :aria-busy="isSubmitting"
+      >
+        {{ isSubmitting ? "Signing in…" : "Sign in" }}
+        <span aria-hidden="true">→</span>
       </button>
     </form>
 

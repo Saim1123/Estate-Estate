@@ -2,10 +2,19 @@
 definePageMeta({ layout: "admin" });
 const { saveProperty, can } = useAdminDemo();
 const router = useRouter();
-function save(value: Record<string, any>) {
-  if (!can("createProperties")) return;
-  saveProperty(value);
-  setTimeout(() => router.push("/admin/properties"), 650);
+async function save(
+  value: Record<string, any>,
+  complete: (error?: string) => void,
+) {
+  if (!can("createProperties"))
+    return complete("You do not have permission to create properties.");
+  try {
+    await saveProperty(value);
+    complete();
+    setTimeout(() => router.push("/admin/properties"), 650);
+  } catch (error: any) {
+    complete(error?.data?.statusMessage || "The property could not be saved.");
+  }
 }
 </script>
 <template>

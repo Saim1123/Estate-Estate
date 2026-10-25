@@ -17,11 +17,12 @@ defineProps<{
       <h1>{{ title }}</h1>
       <p v-if="description" class="heading-description">{{ description }}</p>
     </div>
-    <NuxtLink
+    <UButton
       v-if="actionLabel && actionTo"
       :to="actionTo"
       class="admin-button primary"
-      ><span>＋</span>{{ actionLabel }}</NuxtLink
+      variant="ghost"
+      ><span>＋</span>{{ actionLabel }}</UButton
     >
   </div>
 </template>

@@ -20,6 +20,10 @@
       ></div>
     </aside>
     <section class="auth-content">
+      <p class="auth-prototype-banner">
+        Development prototype only · No production identity provider or email
+        delivery is configured.
+      </p>
       <NuxtLink to="/" class="auth-mobile-wordmark"
         >Estate <span>&amp;</span> Estate</NuxtLink
       >
@@ -107,6 +111,16 @@
   align-items: center;
   justify-content: center;
   padding: 42px clamp(24px, 6vw, 90px);
+}
+.auth-prototype-banner {
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: 9px 11px;
+  border: 1px solid #e8e2d6;
+  background: #f6f3ec;
+  color: #776b58;
+  font-size: 0.68rem;
+  line-height: 1.45;
 }
 .auth-form-wrap {
   width: min(100%, 440px);
@@ -311,6 +325,9 @@
     display: block;
     align-self: flex-start;
     font-size: 1.3rem;
+  }
+  .auth-prototype-banner {
+    margin-top: 22px;
   }
   .auth-form-wrap {
     margin-block: auto;

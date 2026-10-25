@@ -1,9 +1,16 @@
 export default defineNuxtConfig({
-  modules: ["@vercel/analytics"],
+  modules: ["@nuxt/ui", "@vercel/analytics"],
 
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
   css: ["~/assets/css/main.css"],
+
+  runtimeConfig: {
+    authMode: "",
+    authSecret: "",
+    authDemoAdminEmail: "",
+    authDemoAdminPassword: "",
+  },
 
   app: {
     head: {

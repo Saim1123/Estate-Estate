@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: "admin" });
-const { properties, can, log } = useAdminDemo();
+const { properties, can } = useAdminDemo();
 const query = ref("");
 const statusFilter = ref("All status");
 const listingFilter = ref("All types");
@@ -9,6 +9,7 @@ const pageSize = 5;
 const pendingDelete = ref<any>(null);
 const viewing = ref<any>(null);
 const toast = ref("");
+const isDeleting = ref(false);
 const filtered = computed(() =>
   properties.value.filter(
     (item) =>
@@ -28,13 +29,26 @@ const rows = computed(() =>
   filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize),
 );
 watch([query, statusFilter, listingFilter], () => (page.value = 1));
-function remove() {
-  properties.value = properties.value.filter(
-    (item) => item.id !== pendingDelete.value.id,
-  );
-  log("deleted", pendingDelete.value.title);
-  toast.value = "Property removed from your demo listings.";
-  pendingDelete.value = null;
+async function remove() {
+  if (!pendingDelete.value || !can("deleteProperties") || isDeleting.value)
+    return;
+  isDeleting.value = true;
+  try {
+    await $fetch(
+      `/api/admin/properties/${encodeURIComponent(pendingDelete.value.id)}`,
+      { method: "DELETE" },
+    );
+    properties.value = properties.value.filter(
+      (item) => item.id !== pendingDelete.value.id,
+    );
+    toast.value = "Property removed from the development workspace.";
+    pendingDelete.value = null;
+  } catch (error: any) {
+    toast.value =
+      error?.data?.statusMessage || "The property could not be removed.";
+  } finally {
+    isDeleting.value = false;
+  }
   setTimeout(() => (toast.value = ""), 3000);
 }
 </script>
@@ -48,7 +62,7 @@ function remove() {
       :action-to="can('createProperties') ? '/admin/properties/new' : undefined"
     />
     <div v-if="!can('viewProperties')" class="permission-notice">
-      Your preview role does not have permission to view properties.
+      You do not have permission to view properties.
     </div>
     <template v-else>
       <div class="property-summary">
@@ -79,19 +93,20 @@ function remove() {
           <div class="table-filters">
             <label class="search-field"
               ><span>⌕</span
-              ><input v-model="query" placeholder="Search properties…" /><kbd
+              ><UInput class="admin-ui-input" v-model="query" placeholder="Search properties…" size="sm" /><kbd
                 >⌘ K</kbd
               ></label
-            ><select v-model="listingFilter" aria-label="Filter listing type">
-              <option>All types</option>
-              <option>Sale</option>
-              <option>Rent</option></select
-            ><select v-model="statusFilter" aria-label="Filter status">
-              <option>All status</option>
-              <option>Published</option>
-              <option>Draft</option>
-              <option>Review</option>
-            </select>
+            ><USelect class="admin-ui-select"
+              v-model="listingFilter"
+              :items="['All types', 'Sale', 'Rent']"
+              aria-label="Filter listing type"
+              size="sm"
+            /><USelect class="admin-ui-select"
+              v-model="statusFilter"
+              :items="['All status', 'Published', 'Draft', 'Review']"
+              aria-label="Filter status"
+              size="sm"
+            />
           </div>
         </div>
         <div class="table-overflow">
@@ -136,19 +151,19 @@ function remove() {
                 <td class="date-cell">{{ property.updated }}</td>
                 <td>
                   <div class="row-actions">
-                    <button
+                    <UButton variant="ghost"
                       aria-label="View property"
                       title="View"
                       @click="viewing = property"
                     >
-                      ◉</button
+                      ◉</UButton
                     ><NuxtLink
                       v-if="can('editProperties')"
                       :to="`/admin/properties/${property.id}`"
                       title="Edit"
                       aria-label="Edit property"
                       >↗</NuxtLink
-                    ><button
+                    ><UButton variant="ghost"
                       v-if="can('deleteProperties')"
                       aria-label="Delete property"
                       title="Delete"
@@ -156,7 +171,7 @@ function remove() {
                       @click="pendingDelete = property"
                     >
                       ×
-                    </button>
+                    </UButton>
                   </div>
                 </td>
               </tr>
@@ -199,26 +214,26 @@ function remove() {
             of <b>{{ filtered.length }}</b> properties</span
           >
           <div>
-            <button
+            <UButton variant="ghost"
               :disabled="page <= 1"
               aria-label="Previous page"
               @click="page--"
             >
-              ‹</button
-            ><button
+              ‹</UButton
+            ><UButton variant="ghost"
               v-for="number in pages"
               :key="number"
               :class="{ selected: page === number }"
               @click="page = number"
             >
-              {{ number }}</button
-            ><button
+              {{ number }}</UButton
+            ><UButton variant="ghost"
               :disabled="page >= pages"
               aria-label="Next page"
               @click="page++"
             >
               ›
-            </button>
+            </UButton>
           </div>
         </div>
       </section>
@@ -242,23 +257,27 @@ function remove() {
           workspace. This action cannot be undone.
         </p>
         <div>
-          <button class="admin-button" @click="pendingDelete = null">
-            Keep property</button
-          ><button class="admin-button danger" @click="remove">
-            Delete property
-          </button>
+          <UButton variant="ghost" class="admin-button" @click="pendingDelete = null">
+            Keep property</UButton
+          ><UButton variant="ghost"
+            class="admin-button danger"
+            :disabled="isDeleting"
+            @click="remove"
+          >
+            {{ isDeleting ? "Deleting…" : "Delete property" }}
+          </UButton>
         </div>
       </section>
     </div>
     <div v-if="viewing" class="modal-backdrop" @click.self="viewing = null">
       <section class="view-modal" role="dialog" aria-modal="true">
-        <img :src="viewing.image" :alt="viewing.title" /><button
+        <img :src="viewing.image" :alt="viewing.title" /><UButton variant="ghost"
           class="modal-close"
           aria-label="Close"
           @click="viewing = null"
         >
           ×
-        </button>
+        </UButton>
         <div>
           <span class="panel-eyebrow"
             >{{ viewing.type }} · {{ viewing.listing }}</span

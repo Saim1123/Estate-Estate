@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: "admin" });
 const { properties, users, activity, can } = useAdminDemo();
+const route = useRoute();
 const published = computed(
   () => properties.value.filter((item) => item.status === "Published").length,
 );
@@ -15,6 +16,9 @@ const recentProperties = computed(() =>
 </script>
 <template>
   <div>
+    <div v-if="route.query.denied" class="permission-notice">
+      You do not have permission to open that page.
+    </div>
     <AdminPageHeading
       eyebrow="SUNDAY, OCTOBER 25, 2026"
       title="Good morning, Amina"
@@ -30,40 +34,48 @@ const recentProperties = computed(() =>
     </div>
     <div class="stat-grid">
       <article class="stat-card">
-        <div class="stat-head">
-          <span>Total properties</span><span class="stat-icon">⌂</span>
-        </div>
-        <strong>{{ properties.length }}</strong
-        ><small><i>↗</i> {{ properties.length }} in your portfolio</small>
-        <div class="stat-rule"><span style="width: 78%" /></div>
+        <template v-if="can('properties.view')">
+          <div class="stat-head">
+            <span>Total properties</span><span class="stat-icon">⌂</span>
+          </div>
+          <strong>{{ properties.length }}</strong
+          ><small><i>↗</i> {{ properties.length }} in your portfolio</small>
+          <div class="stat-rule"><span style="width: 78%" /></div>
+        </template>
       </article>
       <article class="stat-card">
-        <div class="stat-head">
-          <span>Published listings</span><span class="stat-icon">◉</span>
-        </div>
-        <strong>{{ published }}</strong
-        ><small><i>↗</i> Visible on your website</small>
-        <div class="stat-rule"><span style="width: 62%" /></div>
+        <template v-if="can('properties.view')">
+          <div class="stat-head">
+            <span>Published listings</span><span class="stat-icon">◉</span>
+          </div>
+          <strong>{{ published }}</strong
+          ><small><i>↗</i> Visible on your website</small>
+          <div class="stat-rule"><span style="width: 62%" /></div>
+        </template>
       </article>
       <article class="stat-card">
-        <div class="stat-head">
-          <span>Drafts in progress</span><span class="stat-icon">▤</span>
-        </div>
-        <strong>{{ drafts }}</strong
-        ><small>Ready when you are</small>
-        <div class="stat-rule"><span style="width: 36%" /></div>
+        <template v-if="can('properties.view')">
+          <div class="stat-head">
+            <span>Drafts in progress</span><span class="stat-icon">▤</span>
+          </div>
+          <strong>{{ drafts }}</strong
+          ><small>Ready when you are</small>
+          <div class="stat-rule"><span style="width: 36%" /></div>
+        </template>
       </article>
       <article class="stat-card">
-        <div class="stat-head">
-          <span>Total users</span><span class="stat-icon">♙</span>
-        </div>
-        <strong>{{ users.length }}</strong
-        ><small>Across your team</small>
-        <div class="stat-rule"><span style="width: 48%" /></div>
+        <template v-if="can('users.view')">
+          <div class="stat-head">
+            <span>Total users</span><span class="stat-icon">♙</span>
+          </div>
+          <strong>{{ users.length }}</strong
+          ><small>Across your team</small>
+          <div class="stat-rule"><span style="width: 48%" /></div>
+        </template>
       </article>
     </div>
     <div class="dash-grid">
-      <section class="dash-panel recent-panel">
+      <section v-if="can('properties.view')" class="dash-panel recent-panel">
         <div class="panel-heading">
           <div>
             <span class="panel-eyebrow">PORTFOLIO</span>
@@ -99,7 +111,7 @@ const recentProperties = computed(() =>
           </article>
         </div>
       </section>
-      <section class="dash-panel activity-panel">
+      <section v-if="can('viewActivity')" class="dash-panel activity-panel">
         <div class="panel-heading">
           <div>
             <span class="panel-eyebrow">THE LATEST</span>
