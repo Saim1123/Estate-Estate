@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { properties } from "~/data/properties";
-const search = ref("");
+const route = useRoute();
+const search = ref(typeof route.query.search === "string" ? route.query.search : "");
 const location = ref("");
 const type = ref("");
-const status = ref("");
+const status = ref(typeof route.query.status === "string" ? route.query.status : "");
+const bedrooms = ref(typeof route.query.beds === "string" ? route.query.beds : "");
 const maxPrice = ref("");
 const sortBy = ref("featured");
 const filtersOpen = ref(false);
@@ -19,6 +21,7 @@ const filtered = computed(() => {
       (!location.value || property.location.includes(location.value)) &&
       (!type.value || property.type === type.value) &&
       (!status.value || property.status === status.value) &&
+      (!bedrooms.value || property.beds >= Number(bedrooms.value)) &&
       (!maxPrice.value || property.price <= Number(maxPrice.value))
     );
   });
@@ -34,6 +37,7 @@ function resetFilters() {
   location.value = "";
   type.value = "";
   status.value = "";
+  bedrooms.value = "";
   maxPrice.value = "";
   sortBy.value = "featured";
 }
@@ -111,6 +115,14 @@ function resetFilters() {
           <option>Apartment</option>
           <option>Townhouse</option>
         </select>
+        <label class="field-label" for="bedrooms">Bedrooms</label
+        ><select id="bedrooms" v-model="bedrooms" class="form-control">
+          <option value="">Any number</option>
+          <option value="1">1+ bedroom</option>
+          <option value="2">2+ bedrooms</option>
+          <option value="3">3+ bedrooms</option>
+          <option value="4">4+ bedrooms</option>
+        </select>
         <label class="field-label" for="max-price">Maximum price (PKR)</label
         ><input
           id="max-price"
@@ -151,9 +163,14 @@ function resetFilters() {
 </template>
 
 <style scoped>
+.page-intro { padding-top: 38px; }
 .page-intro h1 {
-  margin: 14px 0 16px;
+  margin: 12px 0 10px;
+  font-size: clamp(2rem, 4vw, 2.7rem);
+  font-weight: 650;
+  letter-spacing: -.05em;
 }
+.page-intro .eyebrow { color: #717171; letter-spacing: .08em; }
 .page-intro p {
   margin: 0;
 }
@@ -163,10 +180,10 @@ function resetFilters() {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
 }
 .search-wrap {
   position: relative;
@@ -204,8 +221,8 @@ function resetFilters() {
   align-self: start;
   display: grid;
   gap: 9px;
-  padding: 16px;
-  background: var(--cream);
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
 }
 .filter-heading {
   display: flex;
@@ -243,8 +260,8 @@ function resetFilters() {
 }
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 18px;
 }
 .mobile-filter-toggle {
   display: none;
@@ -279,6 +296,7 @@ function resetFilters() {
     gap: 22px;
   }
   .results-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
   }
 }

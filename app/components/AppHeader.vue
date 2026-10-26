@@ -1,6 +1,12 @@
 <script setup lang="ts">
 const route = useRoute();
 const menuOpen = ref(false);
+const headerSearch = ref("");
+const router = useRouter();
+function searchHomes() {
+  const term = headerSearch.value.trim();
+  router.push({ path: "/properties", query: term ? { search: term } : {} });
+}
 const links = [
   { label: "Home", to: "/" },
   { label: "Properties", to: "/properties" },
@@ -24,6 +30,18 @@ watch(
           >PROPERTY, CONSIDERED</small
         ></NuxtLink
       >
+      <form class="header-search" role="search" @submit.prevent="searchHomes">
+        <label class="sr-only" for="header-property-search">Search homes</label>
+        <input
+          id="header-property-search"
+          v-model="headerSearch"
+          type="search"
+          placeholder="Search homes"
+        />
+        <button type="submit" aria-label="Search properties">
+          <span aria-hidden="true">⌕</span>
+        </button>
+      </form>
       <button
         class="menu-toggle"
         type="button"
@@ -62,21 +80,23 @@ watch(
 
 <style scoped>
 .site-header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
-  background: var(--paper);
+  background: rgb(255 255 255 / 96%);
   border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(12px);
 }
 .header-inner {
-  min-height: 86px;
+  min-height: 78px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 32px;
 }
 .wordmark {
-  font: 400 1.5rem/1 var(--serif);
-  letter-spacing: -0.035em;
+  font: 700 1.22rem/1 var(--sans);
+  letter-spacing: -0.055em;
   white-space: nowrap;
 }
 .wordmark span {
@@ -86,13 +106,60 @@ watch(
   display: block;
   margin-top: 7px;
   color: var(--muted);
-  font: 700 0.55rem/1 var(--sans);
+  font: 600 0.5rem/1 var(--sans);
   letter-spacing: 0.18em;
+}
+.header-search {
+  display: flex;
+  align-items: center;
+  width: min(330px, 30vw);
+  gap: 8px;
+  padding: 6px 7px 6px 18px;
+  border: 1px solid #ddd;
+  border-radius: 999px;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 7%);
+}
+.header-search input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 400 .84rem var(--sans);
+}
+.header-search input::placeholder { color: #717171; opacity: 1; }
+.header-search button {
+  display: grid;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+.header-search button:hover { background: var(--green-dark); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .primary-nav {
   display: flex;
   align-items: center;
-  gap: clamp(20px, 3vw, 38px);
+  gap: clamp(18px, 2vw, 28px);
 }
 .primary-nav > a:not(.btn) {
   position: relative;
@@ -137,10 +204,18 @@ watch(
 }
 @media (max-width: 760px) {
   .header-inner {
-    min-height: 72px;
+    min-height: 70px;
+  }
+  .header-search {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    margin-left: auto;
   }
   .menu-toggle {
     display: flex;
+    border-radius: 50%;
+    background: white;
   }
   .primary-nav {
     display: none;
