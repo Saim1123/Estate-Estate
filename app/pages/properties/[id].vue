@@ -1,461 +1,220 @@
 <script setup lang="ts">
 import { properties } from "~/data/properties";
+
 const route = useRoute();
-const property = computed(() =>
-  properties.find((item) => item.id === route.params.id),
-);
+const property = computed(() => properties.find((item) => item.id === route.params.id));
+const related = computed(() => properties.filter((item) => item.id !== property.value?.id).slice(0, 3));
 const activeImage = ref(0);
-const related = computed(() =>
-  properties.filter((item) => item.id !== property.value?.id).slice(0, 3),
-);
-watch(
-  () => route.params.id,
-  () => {
-    activeImage.value = 0;
-  },
-);
+const galleryOpen = ref(false);
+const saved = ref(false);
+const shareMessage = ref("");
+
+watch(() => route.params.id, () => {
+  activeImage.value = 0;
+  galleryOpen.value = false;
+  saved.value = false;
+});
+
 function moveImage(direction: number) {
   if (!property.value) return;
-  activeImage.value =
-    (activeImage.value + direction + property.value.images.length) %
-    property.value.images.length;
+  activeImage.value = (activeImage.value + direction + property.value.images.length) % property.value.images.length;
+}
+
+async function shareProperty() {
+  if (!property.value) return;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: property.value.title, url: window.location.href });
+      return;
+    }
+    await navigator.clipboard.writeText(window.location.href);
+    shareMessage.value = "Link copied";
+  } catch {
+    shareMessage.value = "Copy this page link from your browser";
+  }
+  window.setTimeout(() => (shareMessage.value = ""), 2500);
 }
 </script>
 
 <template>
   <div v-if="property" class="container detail-page">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
-      <NuxtLink to="/">Home</NuxtLink><span>/</span
-      ><NuxtLink to="/properties">Properties</NuxtLink><span>/</span
-      ><span aria-current="page">{{ property.title }}</span>
+      <NuxtLink to="/">Home</NuxtLink><span aria-hidden="true">›</span>
+      <NuxtLink to="/properties">Properties</NuxtLink><span aria-hidden="true">›</span>
+      <span aria-current="page">{{ property.title }}</span>
     </nav>
-    <div class="detail-heading">
-      <div>
-        <span class="eyebrow">{{ property.status }} · {{ property.type }}</span>
-        <h1 class="page-title">{{ property.title }}</h1>
-        <p class="location">
-          {{ property.location }} <span>·</span> Illustrative area only
-        </p>
+
+    <header class="listing-heading">
+      <div class="listing-title">
+        <h1>{{ property.title }}</h1>
+        <p>{{ property.location }} <span aria-hidden="true">·</span> {{ property.status }} <span aria-hidden="true">·</span> {{ property.type }}</p>
       </div>
-      <div class="price-box">
-        <span>Asking price</span><strong>{{ property.priceLabel }}</strong>
+      <div class="listing-actions">
+        <button type="button" @click="shareProperty"><span aria-hidden="true">↗</span> Share</button>
+        <button type="button" :aria-pressed="saved" @click="saved = !saved"><span aria-hidden="true">{{ saved ? "♥" : "♡" }}</span> {{ saved ? "Saved" : "Save" }}</button>
+        <span class="share-message" aria-live="polite">{{ shareMessage }}</span>
       </div>
-    </div>
-    <div class="gallery">
-      <div class="main-photo">
-        <img
-          :src="property.images[activeImage]"
-          :alt="`${property.title}, view ${activeImage + 1}`"
-        />
-        <div class="gallery-controls">
-          <button
-            type="button"
-            aria-label="Previous photo"
-            @click="moveImage(-1)"
-          >
-            ←</button
-          ><span
-            >{{ String(activeImage + 1).padStart(2, "0") }} /
-            {{ String(property.images.length).padStart(2, "0") }}</span
-          ><button type="button" aria-label="Next photo" @click="moveImage(1)">
-            →
-          </button>
-        </div>
-      </div>
-      <div class="thumbs">
-        <button
-          v-for="(image, index) in property.images"
-          :key="image"
-          type="button"
-          :aria-label="`Show photo ${index + 1}`"
-          :aria-pressed="activeImage === index"
-          :class="{ selected: activeImage === index }"
-          @click="activeImage = index"
-        >
-          <img :src="image" :alt="`${property.title} thumbnail ${index + 1}`" />
-        </button>
-        <div class="gallery-note">Illustrative mock property imagery</div>
-      </div>
-    </div>
+    </header>
+
+    <section class="photo-grid" aria-label="Property photos">
+      <button v-for="(image, index) in property.images.slice(0, 3)" :key="image" type="button" class="photo-tile" :class="{ 'photo-primary': index === 0 }" :aria-label="`View photo ${index + 1} of ${property.title}`" @click="activeImage = index; galleryOpen = true">
+        <img :src="image" :alt="`${property.title}, photo ${index + 1}`" :loading="index === 0 ? 'eager' : 'lazy'" />
+      </button>
+      <button class="all-photos" type="button" @click="activeImage = 0; galleryOpen = true"><span aria-hidden="true">▦</span> Show all {{ property.images.length }} photos</button>
+    </section>
+
     <div class="detail-columns">
-      <div class="detail-main">
-        <div class="facts">
-          <div>
-            <strong>{{ property.beds }}</strong
-            ><span>Bedrooms</span>
-          </div>
-          <div>
-            <strong>{{ property.baths }}</strong
-            ><span>Bathrooms</span>
-          </div>
-          <div>
-            <strong>{{ property.area.toLocaleString() }}</strong
-            ><span>Approx. sq ft</span>
-          </div>
-          <div>
-            <strong>{{ property.type }}</strong
-            ><span>Property type</span>
-          </div>
+      <main class="detail-main">
+        <div class="listing-facts">
+          <div><strong>{{ property.beds }}</strong><span>bedrooms</span></div><i aria-hidden="true">·</i>
+          <div><strong>{{ property.baths }}</strong><span>bathrooms</span></div><i aria-hidden="true">·</i>
+          <div><strong>{{ property.area.toLocaleString() }}</strong><span>sq ft</span></div><i aria-hidden="true">·</i>
+          <div><strong>{{ property.type }}</strong><span>property</span></div>
         </div>
-        <section class="detail-section">
-          <span class="eyebrow">The property</span>
-          <h2 class="section-title">A home with room to settle in.</h2>
+        <section class="detail-section about-section">
+          <span class="eyebrow">About this home</span>
+          <h2>{{ property.title }}</h2>
           <p class="body-copy">{{ property.description }}</p>
-          <p class="body-copy disclaimer">
-            This page presents an illustrative mock listing for design purposes.
-            Availability, pricing, and property details have not been verified.
-          </p>
+          <p class="listing-disclaimer">Illustrative listing: pricing, availability, location and property details have not been independently verified.</p>
         </section>
-        <section class="detail-section features">
-          <span class="eyebrow">Highlights</span>
-          <h2 class="section-title">Considered details</h2>
-          <ul>
-            <li v-for="feature in property.features" :key="feature">
-              {{ feature }}
-            </li>
-          </ul>
+        <section class="detail-section features-section">
+          <span class="eyebrow">Inside the home</span>
+          <h2>What this place offers</h2>
+          <ul><li v-for="feature in property.features" :key="feature"><span aria-hidden="true">✓</span>{{ feature }}</li></ul>
         </section>
         <section class="detail-section location-section">
-          <span class="eyebrow">The neighbourhood</span>
-          <h2 class="section-title">{{ property.location }}</h2>
-          <p class="body-copy">
-            Explore the surrounding area with our team. This listing shows a
-            neighbourhood only; no street address or precise location is
-            provided.
-          </p>
+          <span class="eyebrow">Location</span>
+          <h2>{{ property.location }}</h2>
+          <p class="body-copy">The listing shows the neighbourhood only. Contact our team to discuss the area and arrange a viewing.</p>
+          <div class="location-note"><span aria-hidden="true">⌖</span><div><strong>Neighbourhood only</strong><small>Street address is not shown on this demo listing</small></div></div>
         </section>
-      </div>
+      </main>
+
       <aside class="inquiry-card">
-        <span class="eyebrow">Interested in this property?</span>
-        <h2 class="section-title">Let’s talk it through.</h2>
-        <p class="body-copy">
-          Tell us what you’d like to know and we’ll help you understand the next
-          steps.
-        </p>
-        <NuxtLink :to="`/contact?property=${property.id}`" class="btn"
-          >Enquire about this home <span aria-hidden="true">↗</span></NuxtLink
-        ><NuxtLink to="/properties" class="text-link"
-          >Back to all properties <span aria-hidden="true">→</span></NuxtLink
-        ><small>Mock listing · details are illustrative</small>
+        <div class="inquiry-price"><span>Asking price</span><strong>{{ property.priceLabel }}</strong></div>
+        <div class="inquiry-summary"><span>{{ property.beds }} bedrooms</span><i>·</i><span>{{ property.baths }} bathrooms</span></div>
+        <NuxtLink :to="`/contact?property=${property.id}`" class="btn inquiry-button">Contact about this home <span aria-hidden="true">→</span></NuxtLink>
+        <p class="inquiry-note">Our team can answer questions and help arrange a viewing.</p>
+        <NuxtLink to="/properties" class="all-listings">Browse all properties</NuxtLink>
       </aside>
     </div>
-    <section class="related">
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">Continue exploring</span>
-          <h2 class="section-title">More places to consider.</h2>
-        </div>
-        <NuxtLink to="/properties" class="text-link"
-          >All properties <span aria-hidden="true">→</span></NuxtLink
-        >
-      </div>
-      <div class="related-grid">
-        <PropertyCard v-for="item in related" :key="item.id" :property="item" />
-      </div>
+
+    <section class="related-section">
+      <div class="related-heading"><div><span class="eyebrow">Keep exploring</span><h2>More homes to discover</h2></div><NuxtLink to="/properties">See all <span aria-hidden="true">→</span></NuxtLink></div>
+      <div class="related-grid"><PropertyCard v-for="item in related" :key="item.id" :property="item" /></div>
     </section>
+
+    <div v-if="galleryOpen" class="gallery-modal" role="dialog" aria-modal="true" aria-label="Property photo gallery" @click.self="galleryOpen = false" @keydown.esc.window="galleryOpen = false">
+      <button type="button" class="gallery-close" aria-label="Close gallery" @click="galleryOpen = false">×</button>
+      <button type="button" class="gallery-arrow previous" aria-label="Previous photo" @click="moveImage(-1)">‹</button>
+      <figure><img :src="property.images[activeImage]" :alt="`${property.title}, photo ${activeImage + 1}`" /><figcaption>{{ activeImage + 1 }} / {{ property.images.length }}</figcaption></figure>
+      <button type="button" class="gallery-arrow next" aria-label="Next photo" @click="moveImage(1)">›</button>
+    </div>
   </div>
   <section v-else class="container not-found">
-    <span class="eyebrow">Property unavailable</span>
-    <h1 class="page-title">We couldn’t find that listing.</h1>
-    <p class="body-copy">
-      It may have been removed or the link may be incorrect.
-    </p>
+    <span class="eyebrow">Property unavailable</span><h1>We couldn’t find that listing.</h1>
+    <p class="body-copy">It may have been removed or the link may be incorrect.</p>
     <NuxtLink to="/properties" class="btn">Browse properties</NuxtLink>
   </section>
 </template>
 
 <style scoped>
-.detail-page {
-  padding-bottom: 90px;
+.detail-page { padding-bottom: 88px; }
+.breadcrumbs { display: flex; align-items: center; gap: 9px; padding: 18px 0 22px; color: #717171; font-size: .82rem; }
+.breadcrumbs a { text-decoration: underline; text-underline-offset: 2px; }
+.breadcrumbs a:hover { color: #222; }
+.breadcrumbs span[aria-current="page"] { overflow: hidden; color: #444; text-overflow: ellipsis; white-space: nowrap; }
+.listing-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 19px; }
+.listing-title h1 { margin: 0 0 7px; font-size: clamp(1.7rem, 3vw, 2.15rem); font-weight: 650; line-height: 1.15; letter-spacing: -.045em; }
+.listing-title p { margin: 0; color: #555; font-size: .93rem; }
+.listing-title p span { padding-inline: 4px; color: #888; }
+.listing-actions { position: relative; display: flex; gap: 8px; flex: none; }
+.listing-actions button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 11px; border: 0; border-radius: 999px; background: white; color: #333; font-size: .84rem; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.listing-actions button:hover { background: #f5f5f4; }
+.listing-actions button span { font-size: 1rem; }
+.listing-actions button[aria-pressed="true"] span { color: #e25563; }
+.share-message { position: absolute; top: calc(100% + 3px); right: 0; z-index: 2; color: #536957; font-size: .75rem; white-space: nowrap; }
+.photo-grid { position: relative; display: grid; grid-template-columns: 1.25fr 1fr; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; aspect-ratio: 1.95; max-height: 520px; overflow: hidden; border-radius: 17px; background: #f3f3f2; }
+.photo-tile { min-width: 0; min-height: 0; overflow: hidden; padding: 0; border: 0; background: #eee; cursor: pointer; }
+.photo-primary { grid-row: span 2; }
+.photo-tile img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.photo-tile:hover img { transform: scale(1.025); }
+.all-photos { position: absolute; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid #222; border-radius: 9px; background: white; color: #222; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.all-photos:hover { background: #f7f7f7; }
+.detail-columns { display: grid; grid-template-columns: minmax(0, 1fr) 360px; align-items: start; gap: 74px; padding-top: 32px; }
+.detail-main { min-width: 0; }
+.listing-facts { display: flex; align-items: center; gap: 12px; padding: 0 0 23px; border-bottom: 1px solid #e6e6e6; color: #444; }
+.listing-facts div { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.listing-facts strong { font-size: .95rem; font-weight: 650; }
+.listing-facts span { font-size: .9rem; }
+.listing-facts i { color: #888; font-style: normal; }
+.detail-section { padding: 26px 0; border-bottom: 1px solid #e6e6e6; }
+.detail-section .eyebrow { color: #717171; font-size: .73rem; letter-spacing: .08em; }
+.detail-section h2 { margin: 6px 0 13px; font-size: 1.35rem; font-weight: 650; line-height: 1.25; letter-spacing: -.025em; }
+.detail-section .body-copy { margin: 0; color: #555; font-size: .96rem; line-height: 1.7; }
+.listing-disclaimer { margin: 16px 0 0; color: #777; font-size: .78rem; line-height: 1.55; }
+.features-section ul { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; margin: 18px 0 0; padding: 0; list-style: none; }
+.features-section li { display: flex; align-items: center; gap: 11px; color: #444; font-size: .9rem; }
+.features-section li span { color: #536957; font-size: 1rem; }
+.location-note { display: flex; align-items: center; gap: 13px; margin-top: 18px; padding: 17px; border: 1px solid #e6e6e6; border-radius: 13px; background: #fafaf9; }
+.location-note > span { font-size: 1.35rem; }
+.location-note div { display: grid; gap: 3px; }
+.location-note strong { font-size: .86rem; font-weight: 600; }
+.location-note small { color: #717171; font-size: .78rem; }
+.inquiry-card { position: sticky; top: 102px; display: grid; gap: 17px; padding: 23px; border: 1px solid #e6e6e6; border-radius: 16px; background: white; box-shadow: 0 6px 22px rgb(0 0 0 / 8%); }
+.inquiry-price { display: grid; gap: 4px; }
+.inquiry-price > span { color: #717171; font-size: .82rem; }
+.inquiry-price strong { font-size: 1.28rem; font-weight: 650; letter-spacing: -.025em; }
+.inquiry-summary { display: flex; gap: 9px; color: #555; font-size: .85rem; }
+.inquiry-summary i { font-style: normal; color: #888; }
+.inquiry-button { width: 100%; min-height: 48px; }
+.inquiry-note { margin: -3px 0 0; color: #717171; font-size: .78rem; line-height: 1.5; text-align: center; }
+.all-listings { padding-top: 13px; border-top: 1px solid #eee; color: #444; font-size: .84rem; font-weight: 600; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+.related-section { padding-top: 66px; }
+.related-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 20px; }
+.related-heading .eyebrow { color: #717171; font-size: .73rem; }
+.related-heading h2 { margin: 5px 0 0; font-size: 1.55rem; font-weight: 650; letter-spacing: -.04em; }
+.related-heading > a { color: #333; font-size: .88rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.related-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.gallery-modal { position: fixed; inset: 0; z-index: 100; display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; justify-items: center; padding: 60px 30px 30px; background: rgb(20 20 20 / 94%); }
+.gallery-modal figure { display: grid; justify-items: center; gap: 12px; width: min(100%, 1050px); max-height: 100%; margin: 0; }
+.gallery-modal figure img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; border-radius: 8px; }
+.gallery-modal figcaption { color: white; font-size: .85rem; }
+.gallery-close, .gallery-arrow { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid #ffffff70; border-radius: 50%; background: transparent; color: white; font-size: 1.8rem; cursor: pointer; }
+.gallery-close { position: absolute; top: 18px; right: 22px; font-size: 1.6rem; }
+.gallery-arrow:hover, .gallery-close:hover { background: #ffffff20; }
+.not-found { min-height: 60vh; padding-block: 100px; }
+.not-found h1 { max-width: 700px; margin: 14px 0; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.04em; }
+.not-found p { margin-bottom: 24px; }
+@media (max-width: 900px) {
+  .detail-columns { grid-template-columns: minmax(0, 1fr) 320px; gap: 30px; }
+  .listing-facts { flex-wrap: wrap; gap: 9px; }
+  .related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .related-grid > :last-child { display: none; }
 }
-.breadcrumbs {
-  display: flex;
-  gap: 10px;
-  padding: 25px 0;
-  color: var(--muted);
-  font-size: 0.76rem;
-}
-.breadcrumbs a:hover {
-  color: var(--green);
-}
-.detail-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 14px 0 25px;
-}
-.detail-heading h1 {
-  margin: 9px 0 6px;
-}
-.location {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-.location span {
-  padding-inline: 4px;
-}
-.price-box {
-  display: grid;
-  gap: 6px;
-  text-align: right;
-}
-.price-box span {
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-.price-box strong {
-  color: var(--green);
-  font-size: 1.12rem;
-}
-.gallery {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.8fr);
-  gap: 10px;
-}
-.main-photo {
-  position: relative;
-  min-height: 360px;
-  aspect-ratio: 1.65;
-  background: var(--cream);
-}
-.main-photo > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.gallery-controls {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 6px;
-  background: var(--paper);
-  font-size: 0.75rem;
-}
-.gallery-controls button {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  background: white;
-  color: var(--green);
-  cursor: pointer;
-  font-size: 1rem;
-}
-.thumbs {
-  display: grid;
-  grid-template-rows: 1fr 1fr auto;
-  gap: 10px;
-}
-.thumbs button {
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-  border: 2px solid transparent;
-  background: var(--cream);
-  cursor: pointer;
-}
-.thumbs button.selected {
-  border-color: var(--green);
-}
-.thumbs img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.gallery-note {
-  color: var(--muted);
-  font-size: 0.68rem;
-}
-.detail-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
-  gap: 60px;
-  padding-top: 44px;
-}
-.facts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 18px 0;
-  border-block: 1px solid var(--line);
-}
-.facts div {
-  display: grid;
-  gap: 5px;
-  padding: 0 12px;
-  border-right: 1px solid var(--line);
-}
-.facts div:first-child {
-  padding-left: 0;
-}
-.facts div:last-child {
-  border: 0;
-}
-.facts strong {
-  font: 400 1.35rem var(--serif);
-}
-.facts span {
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-.detail-section {
-  padding: 38px 0;
-  border-bottom: 1px solid var(--line);
-}
-.detail-section h2 {
-  margin: 10px 0 14px;
-  font-size: 2.1rem;
-}
-.detail-section p {
-  max-width: 700px;
-}
-.disclaimer {
-  font-size: 0.82rem;
-}
-.features ul {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 13px 30px;
-  padding: 0;
-  list-style: none;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-.features li::before {
-  content: "—";
-  margin-right: 9px;
-  color: var(--green);
-}
-.inquiry-card {
-  align-self: start;
-  position: sticky;
-  top: 20px;
-  display: grid;
-  gap: 16px;
-  padding: 24px;
-  background: var(--cream);
-}
-.inquiry-card h2 {
-  margin: 0;
-  font-size: 2rem;
-}
-.inquiry-card p {
-  margin: 0;
-  font-size: 0.88rem;
-}
-.inquiry-card .text-link {
-  justify-content: center;
-}
-.inquiry-card small {
-  color: var(--muted);
-  font-size: 0.68rem;
-  text-align: center;
-}
-.related {
-  padding-top: 78px;
-}
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 20px;
-  margin-bottom: 24px;
-}
-.section-head h2 {
-  margin: 10px 0 0;
-}
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
-.not-found {
-  min-height: 60vh;
-  padding-block: 100px;
-}
-.not-found h1 {
-  max-width: 700px;
-  margin: 14px 0;
-}
-.not-found p {
-  margin-bottom: 24px;
-}
-@media (max-width: 850px) {
-  .detail-columns {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-  .inquiry-card {
-    position: static;
-    grid-row: 1;
-  }
-  .related-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .related-grid > :last-child {
-    display: none;
-  }
-}
-@media (max-width: 600px) {
-  .detail-page {
-    padding-bottom: 64px;
-  }
-  .detail-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .price-box {
-    text-align: left;
-  }
-  .gallery {
-    grid-template-columns: 1fr;
-  }
-  .main-photo {
-    min-height: 250px;
-    aspect-ratio: 1.15;
-  }
-  .thumbs {
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: 80px auto;
-  }
-  .thumbs button {
-    grid-row: 1;
-  }
-  .gallery-note {
-    grid-column: 1 / -1;
-  }
-  .detail-columns {
-    padding-top: 24px;
-  }
-  .facts {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px 0;
-  }
-  .facts div:nth-child(2) {
-    border: 0;
-  }
-  .facts div:nth-child(3) {
-    padding-left: 0;
-  }
-  .features ul {
-    grid-template-columns: 1fr;
-  }
-  .related {
-    padding-top: 55px;
-  }
-  .related-grid {
-    grid-template-columns: 1fr;
-  }
-  .related-grid > :last-child {
-    display: block;
-  }
-  .section-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+@media (max-width: 700px) {
+  .detail-page { padding-bottom: 58px; }
+  .breadcrumbs { padding: 14px 0 18px; font-size: .77rem; }
+  .listing-heading { align-items: flex-start; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .listing-title h1 { font-size: 1.75rem; }
+  .listing-actions { margin-left: -9px; }
+  .photo-grid { grid-template-columns: 1fr; grid-template-rows: 1fr; aspect-ratio: 1.25; border-radius: 13px; }
+  .photo-tile:not(.photo-primary) { display: none; }
+  .photo-primary { grid-row: auto; }
+  .all-photos { right: 10px; bottom: 10px; min-height: 36px; font-size: .76rem; }
+  .detail-columns { grid-template-columns: 1fr; gap: 12px; padding-top: 22px; }
+  .inquiry-card { position: static; grid-row: 1; padding: 19px; }
+  .listing-facts { gap: 7px; padding-bottom: 18px; }
+  .listing-facts div { gap: 4px; }
+  .listing-facts strong, .listing-facts span { font-size: .82rem; }
+  .detail-section { padding: 22px 0; }
+  .features-section ul { grid-template-columns: 1fr; gap: 13px; }
+  .related-section { padding-top: 44px; }
+  .related-grid { grid-template-columns: 1fr; }
+  .related-grid > :last-child { display: block; }
+  .related-heading { align-items: flex-start; }
+  .related-heading h2 { font-size: 1.3rem; }
+  .gallery-modal { grid-template-columns: 40px minmax(0,1fr) 40px; padding: 60px 8px 20px; }
+  .gallery-arrow { width: 34px; height: 34px; }
 }
 </style>
